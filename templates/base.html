@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Telco Churn AI{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col">
+            <div class="p-6 text-center border-b border-slate-700">
+                <h1 class="text-2xl font-bold text-blue-400"><i class="fas fa-brain mr-2"></i>Telco AI</h1>
+                <p class="text-xs text-slate-400 mt-1">Churn Prediction System</p>
+            </div>
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-2 px-4">
+                    <li>
+                        <a href="/" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/' %}bg-blue-600{% endif %}">
+                            <i class="fas fa-tachometer-alt w-6"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/analysis" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/analysis' %}bg-blue-600{% endif %}">
+                            <i class="fas fa-chart-line w-6"></i>
+                            <span>Analisis Model</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/smote-analysis" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/smote-analysis' %}bg-blue-600{% endif %}">
+                            <i class="fas fa-microscope w-6"></i>
+                            <span>Deep Dive SMOTE</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/upload" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/upload' %}bg-blue-600{% endif %}">
+                            <i class="fas fa-file-upload w-6"></i>
+                            <span>Unggah Data</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/history" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/history' %}bg-blue-600{% endif %}">
+                            <i class="fas fa-history w-6"></i>
+                            <span>Riwayat</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <div class="p-4 border-t border-slate-700 text-xs text-center text-slate-500">
+                &copy; 2026 Trae AI Corp
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Topbar (Mobile) -->
+            <header class="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center">
+                <span class="font-bold">Telco AI</span>
+                <button onclick="alert('Menu not implemented in demo')" class="text-white"><i class="fas fa-bars"></i></button>
+            </header>
+
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 p-6">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+</body>
+</html>

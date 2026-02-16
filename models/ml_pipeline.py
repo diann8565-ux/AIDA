@@ -12,10 +12,11 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 from sqlalchemy.orm import Session
 import joblib
 import os
+import shutil
 import json
 import uuid
 from datetime import datetime
-from models import Customer, ModelMetrics, ConfusionMatrix, FeatureImportance, ModelRegistry, TrainingLog
+from .schema import Customer, ModelMetrics, ConfusionMatrix, FeatureImportance, ModelRegistry, TrainingLog
 
 class ChurnPipeline:
     def __init__(self, db_session: Session = None):
@@ -107,6 +108,150 @@ class ChurnPipeline:
         
         return pipeline
 
+    def load_data_from_datasets_folder(self):
+        datasets_dir = "datasets"
+        if not os.path.exists(datasets_dir):
+            self.log(f"Direktori {datasets_dir} tidak ditemukan.", "WARNING")
+            return pd.DataFrame()
+            
+        all_files = [os.path.join(datasets_dir, f) for f in os.listdir(datasets_dir) if f.endswith('.csv') or f.endswith('.xlsx')]
+        
+        if not all_files:
+            self.log("Tidak ada file dataset (CSV/Excel) di folder datasets.", "WARNING")
+            return pd.DataFrame()
+            
+        self.log(f"Menemukan {len(all_files)} file dataset. Memulai penggabungan...")
+        
+        dfs = []
+        for file in all_files:
+            try:
+                if file.endswith('.csv'):
+                    # Try utf-8 then latin-1
+                    try:
+                        df = pd.read_csv(file, encoding='utf-8')
+                    except UnicodeDecodeError:
+                        df = pd.read_csv(file, encoding='latin-1')
+                else:
+                    df = pd.read_excel(file)
+                
+                # Normalize columns if needed (simple mapping)
+                # Map PascalCase to match what preprocess expects (if needed, but preprocess uses df columns directly)
+                # Actually, our preprocess expects 'Churn' and drops 'customerID'. 
+                # Let's standardize column names to match what the pipeline expects.
+                # Pipeline expects: tenure, MonthlyCharges, TotalCharges, etc.
+                # The uploaded files usually have PascalCase.
+                
+                dfs.append(df)
+                self.log(f"Berhasil memuat: {os.path.basename(file)} ({len(df)} baris)")
+            except Exception as e:
+                self.log(f"Gagal memuat {os.path.basename(file)}: {str(e)}", "ERROR")
+                
+        if not dfs:
+            return pd.DataFrame()
+            
+        full_df = pd.concat(dfs, ignore_index=True)
+        self.log(f"Total data gabungan: {len(full_df)} baris")
+        return full_df
+
+    def train_from_datasets_folder(self, n_iter=5):
+        self.log("Memulai proses training dari folder datasets...")
+        
+        df = self.load_data_from_datasets_folder()
+        if df.empty:
+            self.log("Dataset kosong. Aborting training.", "ERROR")
+            return None
+            
+        # Ensure directory exists for model artifacts
+        if not os.path.exists('model_storage'):
+            os.makedirs('model_storage')
+            
+        X, y = self.preprocess(df)
+        
+        if y is None:
+             self.log("Kolom Target 'Churn' tidak ditemukan di dataset.", "ERROR")
+             return None
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, stratify=y, random_state=42
+        )
+        
+        pipeline = self.build_pipeline()
+        
+        # Hyperparameter Space
+        param_dist = {
+            'classifier__n_estimators': [100, 200],
+            'classifier__max_depth': [3, 5, 7],
+            'classifier__learning_rate': [0.01, 0.1, 0.2],
+            'classifier__subsample': [0.8, 1.0]
+        }
+        
+        self.log("Menjalankan RandomizedSearchCV (3-Fold CV)...")
+        search = RandomizedSearchCV(
+            pipeline, 
+            param_distributions=param_dist,
+            n_iter=n_iter,
+            scoring='f1',
+            cv=3, 
+            verbose=1,
+            random_state=42,
+            n_jobs=1  # Changed from -1 to 1 to avoid serialization issues
+        )
+        
+        search.fit(X_train, y_train)
+        
+        best_model = search.best_estimator_
+        best_params = search.best_params_
+        self.log(f"Parameter Terbaik: {json.dumps(best_params)}")
+        
+        # Evaluate
+        self.log("Evaluasi model pada Test Set...")
+        y_pred = best_model.predict(X_test)
+        y_prob = best_model.predict_proba(X_test)[:, 1]
+        
+        metrics = {
+            'accuracy': accuracy_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred),
+            'recall': recall_score(y_test, y_pred),
+            'f1_score': f1_score(y_test, y_pred),
+            'roc_auc': roc_auc_score(y_test, y_prob)
+        }
+        
+        self.log(f"Hasil Evaluasi: Akurasi={metrics['accuracy']:.4f}, F1={metrics['f1_score']:.4f}")
+        
+        # Save Model Artifact (SINGLE MASTER MODEL)
+        # Use a timestamp for versioning in registry, but overwrite the file for "Brain Growth"
+        version_id = f"v_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        master_model_path = "model_storage/churn_model_master.pkl"
+        
+        # Backup previous master if exists (optional, good practice)
+        if os.path.exists(master_model_path):
+            shutil.copy(master_model_path, f"model_storage/churn_model_backup_{version_id}.pkl")
+            
+        joblib.dump(best_model, master_model_path)
+        self.log(f"Model Master diperbarui: {master_model_path}")
+        
+        # Save to Registry
+        registry_entry = ModelRegistry(
+            version=version_id,
+            algorithm="XGBoost + SMOTE (Incremental Growth)",
+            hyperparameters=json.dumps(best_params),
+            filepath=master_model_path,
+            accuracy=metrics['accuracy'],
+            f1_score=metrics['f1_score'],
+            is_active=1
+        )
+        self.db.add(registry_entry)
+        
+        # Save Metrics & CM (Legacy Support)
+        self._save_legacy_metrics(metrics, y_test, y_pred, best_model)
+        
+        # Update active model symlink/file (Keep for compatibility)
+        joblib.dump(best_model, 'churn_model.pkl')
+        
+        self.db.commit()
+        self.log("Training Selesai. Otak model semakin pintar!")
+        return metrics
+
     def train_with_tuning(self, n_iter=5):
         self.log("Memulai proses training dengan Hyperparameter Tuning...")
         
@@ -141,7 +286,7 @@ class ChurnPipeline:
             cv=3, # Reduced CV for speed
             verbose=1,
             random_state=42,
-            n_jobs=-1
+            n_jobs=1  # Changed from -1 to 1 to avoid serialization issues
         )
         
         search.fit(X_train, y_train)

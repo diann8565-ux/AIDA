@@ -15,6 +15,7 @@
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Prediksi</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Probabilitas</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Risiko</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Detail</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-slate-200">
@@ -42,6 +43,9 @@
                         {% else %}
                             <span class="text-green-600 font-bold">Rendah</span>
                         {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 cursor-pointer hover:underline">
+                        <a href="/history/detail/{{ p.prediction_id }}">Lihat</a>
                     </td>
                 </tr>
                 {% endfor %}

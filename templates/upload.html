@@ -104,8 +104,8 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Gender</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Kontrak</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tenure</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tagihan Bulanan</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Total Tagihan</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tagihan Bulanan (Rp)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Total Tagihan (Rp)</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Churn</th>
                     </tr>
                 </thead>
@@ -136,6 +136,13 @@
 <script>
     let currentPage = 1;
     const limit = 20;
+    const EXCHANGE_RATE = 15000;
+
+    function toIDR(usd) {
+        if (usd === null || usd === undefined) return 'Rp 0';
+        let idr = Math.round(usd * EXCHANGE_RATE);
+        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(idr);
+    }
 
     async function loadData(page) {
         try {
@@ -156,8 +163,8 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${row.gender}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${row.contract}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${row.tenure}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">$${row.monthly_charges.toFixed(2)}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">$${row.total_charges.toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${toIDR(row.monthly_charges)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${toIDR(row.total_charges)}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${row.churn === 'Yes' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
                                 ${row.churn}

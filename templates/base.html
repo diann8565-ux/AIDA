@@ -14,8 +14,13 @@
         <!-- Sidebar -->
         <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col">
             <div class="p-6 text-center border-b border-slate-700">
-                <h1 class="text-2xl font-bold text-blue-400"><i class="fas fa-brain mr-2"></i>Telco AI</h1>
-                <p class="text-xs text-slate-400 mt-1">Churn Prediction System</p>
+                <h1 class="text-2xl font-bold text-blue-400"><i class="fas fa-brain mr-2"></i>Churn Prediction</h1>
+                <p class="text-xs text-slate-400 mt-1">Telecomunication Churn Prediction System</p>
+                <!-- Health Check Indicator -->
+                <div id="db-health" class="mt-3 text-xs flex items-center justify-center space-x-2 text-slate-500">
+                    <span class="w-2 h-2 rounded-full bg-slate-500" id="db-status-dot"></span>
+                    <span id="db-status-text">Checking...</span>
+                </div>
             </div>
             <nav class="flex-1 overflow-y-auto py-4">
                 <ul class="space-y-2 px-4">
@@ -35,12 +40,6 @@
                         <a href="/smote-analysis" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/smote-analysis' %}bg-blue-600{% endif %}">
                             <i class="fas fa-microscope w-6"></i>
                             <span>Deep Dive SMOTE</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/upload" class="flex items-center p-3 rounded-lg hover:bg-slate-800 transition-colors {% if request.url.path == '/upload' %}bg-blue-600{% endif %}">
-                            <i class="fas fa-file-upload w-6"></i>
-                            <span>Unggah Data</span>
                         </a>
                     </li>
                     <li>
@@ -71,4 +70,29 @@
     </div>
 
 </body>
+<script>
+    async function checkHealth() {
+        const dot = document.getElementById('db-status-dot');
+        const text = document.getElementById('db-status-text');
+        
+        try {
+            const res = await fetch('/health/db');
+            if (res.ok) {
+                dot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+                text.className = "text-green-400";
+                text.innerText = "Database Connected";
+            } else {
+                throw new Error("DB Error");
+            }
+        } catch (err) {
+            dot.className = "w-2 h-2 rounded-full bg-red-500";
+            text.className = "text-red-400";
+            text.innerText = "Database Offline";
+        }
+    }
+
+    // Check every 5 minutes (300000 ms)
+    setInterval(checkHealth, 300000);
+    checkHealth(); // Initial check
+</script>
 </html>
